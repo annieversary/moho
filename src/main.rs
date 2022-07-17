@@ -2,7 +2,7 @@ use clap::Parser;
 use color_eyre::eyre::Result;
 use std::{
     fs::{self, File},
-    io::Write,
+    io::{self, Write},
     os::unix::prelude::PermissionsExt,
     path::PathBuf,
 };
@@ -18,8 +18,20 @@ struct Args {
 #[derive(clap::Subcommand, Debug)]
 enum Action {
     Create {
+        /// name for the template
+        ///
+        /// will create a template script at `.moho/NAME.mh`, which you can run by calling
+        /// the file directly, or by `bash .moho/NAME.mh`
         #[clap(value_parser)]
         name: String,
+        /// output path for the file
+        ///
+        /// should end in `name.ext`
+        ///
+        /// eg: if it's set to `/path/to/name.rs`, and the template is called with
+        /// `--name hi`, the file will be created at `/path/to/hi.rs`
+        ///
+        /// if none is provided, the file will be created at `name` in the current directory
         #[clap(value_parser)]
         default_path: Option<PathBuf>,
     },
@@ -36,15 +48,13 @@ fn main() -> Result<()> {
 }
 
 fn create_template(name: String, default_path: Option<PathBuf>) -> Result<()> {
-    // TODO check if we're getting text from stdin
-    let template = edit::edit("write your template here...")?;
+    let template = edit::edit("basic template demo {{ meow }}")?;
 
-    let parsed = parse_template(&template);
+    let mut parsed = parse_template(&template);
 
-    // TODO ask about defaults/descriptions
+    ask_defaults_and_descriptions(&mut parsed)?;
 
-    // generate bash script
-    let out = generate_bash_script(parsed, default_path);
+    let out = generate_bash_script(&name, parsed, default_path);
 
     // save to file
     let out_path = format!(".moho/{name}.mh");
@@ -63,12 +73,46 @@ fn make_executable(path: &str) -> Result<()> {
     Ok(())
 }
 
+fn ask_defaults_and_descriptions(t: &mut Template) -> Result<()> {
+    let mut s = String::new();
+
+    for v in &mut t.variables {
+        if v.variable == "name" {
+            continue;
+        }
+
+        print!(
+            "default value for {} (leave empty for no default): ",
+            v.variable
+        );
+        io::stdout().flush()?;
+        io::stdin().read_line(&mut s)?;
+        if !s.is_empty() {
+            v.default = Some(s.trim().to_string());
+        }
+        s.clear();
+
+        print!(
+            "description value for {} (leave empty for no description): ",
+            v.variable
+        );
+        io::stdout().flush()?;
+        io::stdin().read_line(&mut s)?;
+        if !s.is_empty() {
+            v.description = Some(s.trim().to_string());
+        }
+        s.clear();
+    }
+
+    Ok(())
+}
+
 #[derive(Debug)]
 pub struct Template<'a> {
-    original: &'a str,
+    _original: &'a str,
     generated: String,
-    // variable -> default value
     variables: Vec<Variable<'a>>,
+    is_name_used: bool,
     filtered: Vec<FilteredVariable<'a>>,
 }
 
@@ -147,11 +191,23 @@ fn parse_template<'a>(template: &'a str) -> Template<'a> {
         last_char = Some(c);
     }
 
+    let mut is_name_used = true;
+    // insert `name` variable if not exists
+    if variables.iter().find(|v| v.variable == "name").is_none() {
+        is_name_used = false;
+        variables.push(Variable {
+            variable: "name",
+            default: None,
+            description: None,
+        });
+    }
+
     Template {
-        original: template,
+        _original: template,
         generated,
         variables,
         filtered,
+        is_name_used,
     }
 }
 
@@ -169,7 +225,7 @@ fn parse_filtered_variable<'a>(v: &'a str) -> FilteredVariable<'a> {
     }
 }
 
-fn generate_bash_script(t: Template, default_path: Option<PathBuf>) -> String {
+fn generate_bash_script(template_name: &str, t: Template, default_path: Option<PathBuf>) -> String {
     let mut script = String::from("#!/bin/sh\nset -e\n\n");
 
     macro_rules! append {
@@ -205,21 +261,69 @@ while test $# -gt 0; do
         );
     }
 
+    // count how many spaces we need
+    let help_len = "-h, --help".len();
+    let name_len = "--name NAME".len();
+    let max = t
+        .variables
+        .iter()
+        // +3 because of the two dashes, and the one space
+        .map(|v| v.variable.len() * 2 + 3)
+        .max()
+        .unwrap_or_default()
+        .max(help_len)
+        .max(name_len)
+        + 5;
+
+    let spaces = (0..max).map(|_| ' ').collect::<String>();
+
+    let path = if let Some(p) = default_path.clone() {
+        if let Some(ext) = p.extension() {
+            p.with_file_name("NAME.meow").with_extension(ext)
+        } else {
+            p.with_file_name("NAME")
+        }
+        .to_string_lossy()
+        .to_string()
+    } else {
+        "./NAME".into()
+    };
+
     append!(
         r#"    *)
+      echo ""#,
+        template_name,
+        r#":"
+      echo "generates file at "#,
+        &path,
+        r#""
+      echo ""
       echo "options:"
-      echo "-h, --help                show brief help"
-"#,
+      echo "-h, --help"#,
+        &spaces[help_len..],
+        r#"show brief help"
+      echo "--name NAME"#,
+        &spaces[name_len..],
+        r#"filename (without extension)"
+"#
     );
 
     for v in &t.variables {
+        if v.variable == "name" {
+            continue;
+        }
+
         append!(
             r#"      echo "--"#,
             v.variable,
             " ",
             &v.variable.to_uppercase(),
-            "\"\n"
         );
+        if let Some(desc) = &v.description {
+            let l = v.variable.len() * 2 + 3;
+            append!(&spaces[l..], desc);
+        }
+        append!("\"\n");
     }
 
     append!(
@@ -243,6 +347,9 @@ done
     // check that all variables have values
     append!("\n# check that all variables have values\n");
     for v in &t.variables {
+        if v.variable == "name" {
+            continue;
+        }
         append!(
             "if [[ -z \"$",
             v.variable,
@@ -251,6 +358,20 @@ done
             "\"\n  exit 1\nfi\n"
         );
     }
+
+    // TODO change this to only do the check if the variable is used,
+    // or if it's not being piped to a file
+
+    let name_check = if t.is_name_used { "" } else { " && [[ -t 1 ]]" };
+    append!(
+        r#"if [[ -z "$name" ]]"#,
+        name_check,
+        r#"; then
+  echo "No value provided for name"
+  exit 1
+fi
+"#
+    );
 
     if !t.filtered.is_empty() {
         // get all the used filters
@@ -275,7 +396,48 @@ done
             append!("\n");
         }
     }
-    append!("\necho \"", &t.generated, "\"\n");
+    append!("\nout=\"", &t.generated, "\"\n");
+
+    let mkdir = if let Some(p) = &default_path {
+        if let Some(p) = p.parent() {
+            format!(
+                r#"  mkdir -p "{}"
+"#,
+                p.to_string_lossy().to_string()
+            )
+        } else {
+            "".to_string()
+        }
+    } else {
+        "".to_string()
+    };
+    let path = if let Some(p) = default_path {
+        if let Some(ext) = p.extension() {
+            p.with_file_name("${name}.meow").with_extension(ext)
+        } else {
+            p.with_file_name("${name}")
+        }
+        .to_string_lossy()
+        .to_string()
+    } else {
+        "./${name}".into()
+    };
+
+    append!(
+        r#"if [ -t 1 ] ; then
+"#,
+        &mkdir,
+        r#"  echo "$out" > ""#,
+        &path,
+        r#""
+  echo "created file at "#,
+        &path,
+        r#"";
+else
+  echo "$out"
+fi
+"#
+    );
 
     script
 }
@@ -308,7 +470,7 @@ mod tests {
                 .into_iter()
                 .map(|v| v.variable)
                 .collect::<Vec<_>>(),
-            vec!["hi", "hey"]
+            vec!["hi", "hey", "name"]
         );
 
         // check filtered
@@ -325,8 +487,11 @@ mod tests {
     #[test]
     fn parse_and_generate() {
         let mut out = parse_template("hello {{ hi }} {{ hey | upper }} hii");
+
         out.variables.first_mut().unwrap().default = Some("meooow".to_string());
-        let out = generate_bash_script(out);
+        out.variables.first_mut().unwrap().description = Some("this is a description".to_string());
+
+        let out = generate_bash_script("test", out, Some("./folder/name.rs".into()));
 
         assert_eq!(
             out,
@@ -336,6 +501,7 @@ set -e
 # variable declarations
 hi=''
 hey=''
+name=''
 
 # parse arguments
 while test $# -gt 0; do
@@ -350,10 +516,19 @@ while test $# -gt 0; do
       hey="$1"
       shift
       ;;
+    --name)
+      shift
+      name="$1"
+      shift
+      ;;
     *)
+      echo "test:"
+      echo "generates file at ./folder/NAME.rs"
+      echo ""
       echo "options:"
-      echo "-h, --help                show brief help"
-      echo "--hi HI"
+      echo "-h, --help      show brief help"
+      echo "--name NAME     filename (without extension)"
+      echo "--hi HI         this is a description"
       echo "--hey HEY"
       exit 0
       ;;
@@ -372,6 +547,10 @@ if [[ -z "$hey" ]]; then
   echo "No value provided for hey"
   exit 1
 fi
+if [[ -z "$name" ]] && [[ -t 1 ]]; then
+  echo "No value provided for name"
+  exit 1
+fi
 
 # filters
 upper() {
@@ -381,7 +560,14 @@ upper() {
 # filtered variables
 hey_upper=$(upper "$hey")
 
-echo "hello ${hi} ${hey_upper} hi"
+out="hello ${hi} ${hey_upper} hi"
+if [ -t 1 ] ; then
+  mkdir -p "./folder"
+  echo "$out" > "./folder/${name}.rs"
+  echo "created file at ./folder/${name}.rs";
+else
+  echo "$out"
+fi
 "#
         )
     }
