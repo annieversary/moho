@@ -95,7 +95,15 @@ fn ask_defaults_and_descriptions(t: &mut Template) -> Result<()> {
         io::stdout().flush()?;
         io::stdin().read_line(&mut s)?;
         if !s.is_empty() {
-            v.default = Some(s.trim().to_string());
+            v.default = Some(
+                s.trim()
+                    // escape
+                    .replace('"', "\\\"")
+                    .replace('$', "\\$")
+                    .replace('`', "\\`")
+                    .replace('!', "\\!")
+                    .replace('\\', "\\\\"),
+            );
         }
         s.clear();
 
@@ -106,7 +114,14 @@ fn ask_defaults_and_descriptions(t: &mut Template) -> Result<()> {
         io::stdout().flush()?;
         io::stdin().read_line(&mut s)?;
         if !s.is_empty() {
-            v.description = Some(s.trim().to_string());
+            v.description = Some(
+                s.trim()
+                    .replace('"', "\\\"")
+                    .replace('$', "\\$")
+                    .replace('`', "\\`")
+                    .replace('!', "\\!")
+                    .replace('\\', "\\\\"),
+            );
         }
         s.clear();
     }
@@ -157,7 +172,7 @@ mod tests {
     fn parse() {
         let out = parse_template("hello {{ hi }} {{ hey | upper }} hii");
 
-        assert_eq!(out.generated, "hello ${hi} ${hey_upper} hi");
+        assert_eq!(out.generated, "hello ${hi} ${hey_upper} hii");
 
         // check variables
         assert_eq!(
@@ -255,7 +270,7 @@ upper() {
 # filtered variables
 hey_upper=$(upper "$hey")
 
-out="hello ${hi} ${hey_upper} hi"
+out="hello ${hi} ${hey_upper} hii"
 if [ -t 1 ] ; then
   mkdir -p "./folder"
 
@@ -279,5 +294,21 @@ else
 fi
 "#
         )
+    }
+
+    #[test]
+    fn invalid_variables() {
+        let out =
+            parse_template("this is a {{ demo that breaks }} because the variables are invalid");
+        // TODO assert that out is Err
+    }
+
+    #[test]
+    fn escapes() {
+        let out = parse_template(r#" this "string" should be $escaped "#);
+        assert_eq!(out.generated, r#" this \"string\" should be \$escaped "#);
+
+        let out = parse_template(r#" \$ double escape "#);
+        assert_eq!(out.generated, r#" \\\$ double escape "#);
     }
 }

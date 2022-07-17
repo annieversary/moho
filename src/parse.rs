@@ -23,6 +23,8 @@ pub fn parse_template<'a>(template: &'a str) -> Template<'a> {
             if let Some(start) = var.take() {
                 let var_str = &template[start..i - 1].trim();
 
+                // TODO validate that variable is alphanumeric/underscore
+
                 generated.push_str("${");
                 if var_str.contains('|') {
                     let f = parse_filtered_variable(&var_str);
@@ -43,11 +45,23 @@ pub fn parse_template<'a>(template: &'a str) -> Template<'a> {
 
         if var.is_none() {
             if let Some(l) = last_char {
+                if l == '"' || l == '$' || l == '`' || l == '\\' || l == '!' {
+                    generated.push('\\');
+                }
+
                 generated.push(l);
             }
         }
 
         last_char = Some(c);
+    }
+
+    if let Some(l) = last_char {
+        if l == '"' || l == '$' || l == '`' || l == '\\' || l == '!' {
+            generated.push('\\');
+        }
+
+        generated.push(l);
     }
 
     let mut is_name_used = true;
