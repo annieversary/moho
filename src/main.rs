@@ -1,5 +1,5 @@
 use clap::Parser;
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{eyre, Result};
 use std::{
     fs::{self, File},
     io::{self, Write},
@@ -57,7 +57,7 @@ fn main() -> Result<()> {
 fn create_template(name: String, default_path: Option<PathBuf>) -> Result<()> {
     let template = edit::edit("basic template demo {{ meow }}")?;
 
-    let mut parsed = parse_template(&template);
+    let mut parsed = parse_template(&template)?;
 
     ask_defaults_and_descriptions(&mut parsed)?;
 
@@ -169,8 +169,8 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn parse() {
-        let out = parse_template("hello {{ hi }} {{ hey | upper }} hii");
+    fn parse() -> Result<()> {
+        let out = parse_template("hello {{ hi }} {{ hey | upper }} hii")?;
 
         assert_eq!(out.generated, "hello ${hi} ${hey_upper} hii");
 
@@ -192,11 +192,13 @@ mod tests {
                 name: "hey_upper".to_string()
             }]
         );
+
+        Ok(())
     }
 
     #[test]
-    fn parse_and_generate() {
-        let mut out = parse_template("hello {{ hi }} {{ hey | upper }} hii");
+    fn parse_and_generate() -> Result<()> {
+        let mut out = parse_template("hello {{ hi }} {{ hey | upper }} hii")?;
 
         out.variables.first_mut().unwrap().default = Some("meooow".to_string());
         out.variables.first_mut().unwrap().description = Some("this is a description".to_string());
@@ -293,22 +295,42 @@ else
   echo "$out"
 fi
 "#
-        )
+        );
+
+        Ok(())
     }
 
     #[test]
     fn invalid_variables() {
         let out =
             parse_template("this is a {{ demo that breaks }} because the variables are invalid");
-        // TODO assert that out is Err
+        assert!(out.is_err());
     }
 
     #[test]
-    fn escapes() {
-        let out = parse_template(r#" this "string" should be $escaped "#);
+    fn escapes() -> Result<()> {
+        let out = parse_template(r#" this "string" should be $escaped "#)?;
         assert_eq!(out.generated, r#" this \"string\" should be \$escaped "#);
 
-        let out = parse_template(r#" \$ double escape "#);
+        let out = parse_template(r#" \$ double escape "#)?;
         assert_eq!(out.generated, r#" \\\$ double escape "#);
+
+        Ok(())
+    }
+
+    #[test]
+    fn unfinished_variable() -> Result<()> {
+        let out = parse_template(r#" this variable is {{ unfinished "#);
+        assert!(out.is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn nested_variable() -> Result<()> {
+        let out = parse_template(r#" this variable has {{ nesting {{ inside }} }} "#);
+        assert!(out.is_err());
+
+        Ok(())
     }
 }
