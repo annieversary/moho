@@ -1,6 +1,4 @@
-use super::*;
-
-fn get_filters(_filters: &[&str]) -> String {
+pub fn get_filters(_filters: &[&str]) -> String {
     // TODO properly implement this
     // not sure if we wanna have like a stdlib or smth
 

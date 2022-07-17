@@ -133,7 +133,7 @@ done
         append!(
             "if [[ -z \"$",
             v.variable,
-            "\" ]]; then\n  echo \"No value provided for ",
+            "\" ]]; then\n  echo \"Error: No value provided for ",
             v.variable,
             "\"\n  exit 1\nfi\n"
         );
@@ -146,7 +146,7 @@ done
         r#"if [[ -z "$name" ]]"#,
         name_check,
         r#"; then
-  echo "No value provided for name"
+  echo "Error: No value provided for name"
   exit 1
 fi
 "#
@@ -206,7 +206,23 @@ fi
         r#"if [ -t 1 ] ; then
 "#,
         &mkdir,
-        r#"  echo "$out" > ""#,
+        r#"
+  # check if file exists
+  if [ -f ""#,
+        &path,
+        r#"" ] ; then
+     read -r -p "File already exists, overwrite? [y/N] " response
+     case "$response" in
+       [yY][eE][sS]|[yY])
+         ;;
+       *)
+         echo "Stopping"
+         exit 1
+         ;;
+     esac
+  fi
+
+  echo "$out" > ""#,
         &path,
         r#""
   echo "created file at "#,

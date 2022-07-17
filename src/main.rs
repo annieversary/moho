@@ -235,15 +235,15 @@ hi=${hi:-"meooow"}
 
 # check that all variables have values
 if [[ -z "$hi" ]]; then
-  echo "No value provided for hi"
+  echo "Error: No value provided for hi"
   exit 1
 fi
 if [[ -z "$hey" ]]; then
-  echo "No value provided for hey"
+  echo "Error: No value provided for hey"
   exit 1
 fi
 if [[ -z "$name" ]] && [[ -t 1 ]]; then
-  echo "No value provided for name"
+  echo "Error: No value provided for name"
   exit 1
 fi
 
@@ -258,6 +258,20 @@ hey_upper=$(upper "$hey")
 out="hello ${hi} ${hey_upper} hi"
 if [ -t 1 ] ; then
   mkdir -p "./folder"
+
+  # check if file exists
+  if [ -f "./folder/${name}.rs" ] ; then
+     read -r -p "File already exists, overwrite? [y/N] " response
+     case "$response" in
+       [yY][eE][sS]|[yY])
+         ;;
+       *)
+         echo "Stopping"
+         exit 1
+         ;;
+     esac
+  fi
+
   echo "$out" > "./folder/${name}.rs"
   echo "created file at ./folder/${name}.rs";
 else
