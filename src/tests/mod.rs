@@ -1,4 +1,3 @@
-
 use super::*;
 use pretty_assertions::assert_eq;
 
@@ -85,15 +84,15 @@ done
 hi=${hi:-"meooow"}
 
 # check that all variables have values
-if [[ -z "$hi" ]]; then
+if [ -z "$hi" ]; then
   echo "Error: No value provided for hi"
   exit 1
 fi
-if [[ -z "$hey" ]]; then
+if [ -z "$hey" ]; then
   echo "Error: No value provided for hey"
   exit 1
 fi
-if [[ -z "$name" ]] && [[ -t 1 ]]; then
+if [ -z "$name" ] && [ -t 1 ]; then
   echo "Error: No value provided for name"
   exit 1
 fi

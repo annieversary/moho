@@ -1,0 +1,73 @@
+* moho
+moho (spanish for mould, pronounced =/'moo/=, but you can pronounce it like =/'moho/=) is a code generator templating toolkit, similar to [[https://github.com/plopjs/plop][plop]].
+
+if you have used Laravel or Ruby on Rails, you are probably familiar with commands like =php artisan:make= or =rails generate=, which create a new file out of an existing, predefined template. moho allows you create such templates for your own projects, by compiling templates into bash scripts that are executable by anyone. moho is only required for the person managing the templates, everyone else can get away with a simple =sh .moho/controller.mh=!
+
+moho is currently unstable and under active development, so there might be breaking changes at any point. it is not super well documented, but you can see an example of it in use below
+** how to use
+*** creating templates
+you will need to have moho installed for this step. for this example we're going to make a replacement for =php artisan make:controller= in an imaginary Laravel project
+
+we'll start by running =moho create controller app/Http/Controllers/name.php=, where =controller= is the name for the template we will create, and the next argument is the default path for the file
+
+the above command will open your default editor (as set by the =EDITOR= env variable), and will prompt you for the template. we will write the following:
+
+#+begin_src
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Http\Request;
+
+use \App\Models\{{ model }};
+
+/**
+ * My {{ model }} controller
+ */
+class {{ model }}Controller extends Controller
+{
+    //
+}
+#+end_src
+
+after saving the file and quitting, you'll be prompted to enter the default value and description for each of the variables. in our case, we'll enter =\App\Http\Controllers= as the default value for =namespace=, and we enter =controller namespace= as the description. we'll leave the default value for =model= empty, and we'll enter =generate a controller for the given model=
+
+that's it! your current directory now has a folder called =.moho=, which contains a file called =controller.mh=. with this, we are done and we can proceed to the next section
+*** using templates
+you do *not* need to have moho installed for this step, just a [[#compatible-shells][compatible shell]]
+
+you have two options when running a moho template. the first is to pipe the output to a file, like so:
+
+#+begin_src
+.moho/controller.mh --model User > app/Http/Controllers/UserController.php
+#+end_src
+
+the other option is to let moho create the file at the default path we set above, by providing a =name= argument:
+
+#+begin_src
+$ .moho/controller.mh --model User --name UserController
+File already exists, overwrite? [y/N] y
+created file at app/Http/Controllers/UserController.php
+#+end_src
+
+since the file already exists, we're are prompted to make sure we want to overwrite it
+
+moho generates a help output using the descriptions we set above:
+
+#+begin_src
+$ .moho/controller.mh -h
+controller:
+generates file at app/Http/Controllers/NAME.php
+
+options:
+-h, --help                show brief help
+--name NAME               filename (without extension)
+--namespace NAMESPACE     controller namespace
+--model MODEL             generate a controller for the given model
+#+end_src
+** compatible shells
+currently, moho has only been tested on bash 3.2 and zsh 5.8. moho doesn't use any [[http://mywiki.wooledge.org/Bashism][bashisms]] (that i am aware of), so it should work on other shells without much issue. though since shells are shells and they /love/ having their little quirks, that is probably not true, so if you find any issues with your shell of choice, please open an issue!
+
+note: moho templates use the =.mh= extension cause i think it's cool, but they are normal shell scripts. this decision might be revisited later and changed to =.sh=
+** installation
+clone the repo and run =cargo install --path .=

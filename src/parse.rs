@@ -32,13 +32,23 @@ pub fn parse_template<'a>(template: &'a str) -> Result<Template<'a>> {
                     let f = parse_filtered_variable(&var_str)?;
                     generated.push_str(&f.name);
 
-                    variables.push(Variable::new(f.variable));
-                    filtered.push(f);
+                    if !variables.iter().any(|v| v.variable == f.variable) {
+                        variables.push(Variable::new(f.variable));
+                    }
+
+                    if !filtered
+                        .iter()
+                        .any(|v| v.variable == f.variable && v.filters == f.filters)
+                    {
+                        filtered.push(f);
+                    }
                 } else {
                     validate_ident(var_str)?;
 
                     generated.push_str(var_str);
-                    variables.push(Variable::new(var_str));
+                    if !variables.iter().any(|v| &v.variable == var_str) {
+                        variables.push(Variable::new(var_str));
+                    }
                 }
                 generated.push('}');
 

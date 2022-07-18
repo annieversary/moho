@@ -131,9 +131,9 @@ done
             continue;
         }
         append!(
-            "if [[ -z \"$",
+            "if [ -z \"$",
             v.variable,
-            "\" ]]; then\n  echo \"Error: No value provided for ",
+            "\" ]; then\n  echo \"Error: No value provided for ",
             v.variable,
             "\"\n  exit 1\nfi\n"
         );
@@ -141,9 +141,9 @@ done
 
     // only do the name nullable check if the variable is used,
     // or if it's not being piped to a file
-    let name_check = if t.is_name_used { "" } else { " && [[ -t 1 ]]" };
+    let name_check = if t.is_name_used { "" } else { " && [ -t 1 ]" };
     append!(
-        r#"if [[ -z "$name" ]]"#,
+        r#"if [ -z "$name" ]"#,
         name_check,
         r#"; then
   echo "Error: No value provided for name"
