@@ -103,7 +103,6 @@ fn ask_defaults_and_descriptions(t: &mut Template) -> Result<()> {
                     .replace('"', "\\\"")
                     .replace('$', "\\$")
                     .replace('`', "\\`")
-                    .replace('!', "\\!")
                     .replace('\\', "\\\\"),
             );
         }
@@ -121,7 +120,6 @@ fn ask_defaults_and_descriptions(t: &mut Template) -> Result<()> {
                     .replace('"', "\\\"")
                     .replace('$', "\\$")
                     .replace('`', "\\`")
-                    .replace('!', "\\!")
                     .replace('\\', "\\\\"),
             );
         }

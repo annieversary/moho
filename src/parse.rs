@@ -59,7 +59,7 @@ pub fn parse_template<'a>(template: &'a str) -> Result<Template<'a>> {
 
         if var.is_none() {
             if let Some(l) = last_char {
-                if l == '"' || l == '$' || l == '`' || l == '\\' || l == '!' {
+                if l == '"' || l == '$' || l == '`' || l == '\\' {
                     generated.push('\\');
                 }
 
@@ -75,7 +75,7 @@ pub fn parse_template<'a>(template: &'a str) -> Result<Template<'a>> {
     }
 
     if let Some(l) = last_char {
-        if l == '"' || l == '$' || l == '`' || l == '\\' || l == '!' {
+        if l == '"' || l == '$' || l == '`' || l == '\\' {
             generated.push('\\');
         }
 
