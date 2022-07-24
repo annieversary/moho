@@ -1,8 +1,8 @@
 use super::*;
 
-pub fn parse_template<'a>(template: &'a str) -> Result<Template<'a>> {
+pub fn parse_template(template: &str) -> Result<Template> {
     let mut generated = String::with_capacity(template.len());
-    let mut variables: Vec<Variable<'a>> = Vec::new();
+    let mut variables: Vec<Variable> = Vec::new();
     let mut filtered: Vec<FilteredVariable> = Vec::new();
 
     let chars = template.chars();
@@ -29,7 +29,7 @@ pub fn parse_template<'a>(template: &'a str) -> Result<Template<'a>> {
 
                 generated.push_str("${");
                 if var_str.contains('|') {
-                    let f = parse_filtered_variable(&var_str)?;
+                    let f = parse_filtered_variable(var_str)?;
                     generated.push_str(&f.name);
 
                     if !variables.iter().any(|v| v.variable == f.variable) {
@@ -84,7 +84,7 @@ pub fn parse_template<'a>(template: &'a str) -> Result<Template<'a>> {
 
     let mut is_name_used = true;
     // insert `name` variable if not exists
-    if variables.iter().find(|v| v.variable == "name").is_none() {
+    if !variables.iter().any(|v| v.variable == "name") {
         is_name_used = false;
         variables.push(Variable {
             variable: "name",
@@ -94,7 +94,7 @@ pub fn parse_template<'a>(template: &'a str) -> Result<Template<'a>> {
     }
 
     Ok(Template {
-        _original: template,
+        original: template,
         generated,
         variables,
         filtered,
@@ -102,7 +102,7 @@ pub fn parse_template<'a>(template: &'a str) -> Result<Template<'a>> {
     })
 }
 
-fn parse_filtered_variable<'a>(v: &'a str) -> Result<FilteredVariable<'a>> {
+fn parse_filtered_variable(v: &str) -> Result<FilteredVariable> {
     let mut vals = v.split('|').map(|s| s.trim());
 
     for v in vals.clone() {

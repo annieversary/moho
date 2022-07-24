@@ -43,6 +43,10 @@ fn parse_and_generate() -> Result<()> {
         r#"#!/bin/sh
 set -e
 
+if [ ! "$1" = "get-template" ] && [ ! "$1" = "get-vars" ]; then
+
+# normal template-outputing block
+
 # variable declarations
 hi=''
 hey=''
@@ -126,6 +130,28 @@ if [ -t 1 ] ; then
   echo "created file at ./folder/${name}.rs";
 else
   echo "$out"
+fi
+
+# end normal block
+fi
+
+# template editing section
+
+if [ "$1" = "get-template" ]; then
+echo "hello {{ hi }} {{ hey | upper }} hii"
+fi
+
+if [ "$1" = "get-vars" ]; then
+echo "
+default_path=\"./folder/name.rs\"
+
+[defaults]
+hi=\"meooow\"
+
+[descriptions]
+hi=\"this is a description\"
+
+"
 fi
 "#
     );

@@ -1,18 +1,23 @@
 use clap::Parser;
 use color_eyre::eyre::{eyre, Result};
 use std::{
-    fs::{self, File},
+    fs::File,
     io::{self, Write},
-    os::unix::prelude::PermissionsExt,
     path::PathBuf,
 };
 
 mod filters;
 mod generate;
+mod helpers;
 mod parse;
 #[cfg(test)]
 mod tests;
 
+mod create_template;
+mod edit_template;
+
+use create_template::*;
+use edit_template::*;
 use generate::*;
 use parse::*;
 
@@ -44,6 +49,13 @@ enum Action {
         #[clap(value_parser)]
         default_path: Option<PathBuf>,
     },
+    Edit {
+        /// name for the template to edit
+        ///
+        /// file at `.moho/NAME.mh` must exist
+        #[clap(value_parser)]
+        name: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -53,85 +65,13 @@ fn main() -> Result<()> {
 
     match args.action {
         Action::Create { name, default_path } => create_template(name, default_path),
+        Action::Edit { name } => edit_template(name),
     }
-}
-
-fn create_template(name: String, default_path: Option<PathBuf>) -> Result<()> {
-    let template = edit::edit("basic template demo {{ meow }}")?;
-
-    let mut parsed = parse_template(&template)?;
-
-    ask_defaults_and_descriptions(&mut parsed)?;
-
-    let out = generate_bash_script(&name, parsed, default_path);
-
-    // save to file
-    let out_path = format!(".moho/{name}.mh");
-    std::fs::create_dir_all(".moho")?;
-    let mut file = File::create(&out_path)?;
-    file.write_all(out.as_bytes())?;
-    make_executable(&out_path)?;
-
-    Ok(())
-}
-
-fn make_executable(path: &str) -> Result<()> {
-    let mut perms = fs::metadata(path)?.permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(path, perms)?;
-    Ok(())
-}
-
-fn ask_defaults_and_descriptions(t: &mut Template) -> Result<()> {
-    let mut s = String::new();
-
-    for v in &mut t.variables {
-        if v.variable == "name" {
-            continue;
-        }
-
-        print!(
-            "default value for {} (leave empty for no default): ",
-            v.variable
-        );
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut s)?;
-        if !s.is_empty() {
-            v.default = Some(
-                s.trim()
-                    // escape
-                    .replace('"', "\\\"")
-                    .replace('$', "\\$")
-                    .replace('`', "\\`")
-                    .replace('\\', "\\\\"),
-            );
-        }
-        s.clear();
-
-        print!(
-            "description value for {} (leave empty for no description): ",
-            v.variable
-        );
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut s)?;
-        if !s.is_empty() {
-            v.description = Some(
-                s.trim()
-                    .replace('"', "\\\"")
-                    .replace('$', "\\$")
-                    .replace('`', "\\`")
-                    .replace('\\', "\\\\"),
-            );
-        }
-        s.clear();
-    }
-
-    Ok(())
 }
 
 #[derive(Debug)]
 pub struct Template<'a> {
-    _original: &'a str,
+    original: &'a str,
     generated: String,
     variables: Vec<Variable<'a>>,
     is_name_used: bool,

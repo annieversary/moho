@@ -1,12 +1,24 @@
 use super::*;
 use crate::filters::*;
 
+// TODO split into functions
+
 pub fn generate_bash_script(
     template_name: &str,
     t: Template,
     default_path: Option<PathBuf>,
 ) -> String {
-    let mut script = String::from("#!/bin/sh\nset -e\n\n");
+    let mut script = String::from(
+        r#"#!/bin/sh
+set -e
+
+if [ ! "$1" = "get-template" ] && [ ! "$1" = "get-vars" ]; then
+
+# normal template-outputing block
+
+# variable declarations
+"#,
+    );
 
     macro_rules! append {
         ( $($s:expr),* $(,)? ) => {
@@ -15,7 +27,6 @@ pub fn generate_bash_script(
     }
 
     // generate variables
-    append!("# variable declarations\n");
     for v in &t.variables {
         append!(v.variable, "=''\n");
     }
@@ -182,7 +193,7 @@ fi
             format!(
                 r#"  mkdir -p "{}"
 "#,
-                p.to_string_lossy().to_string()
+                p.to_string_lossy()
             )
         } else {
             "".to_string()
@@ -190,7 +201,7 @@ fi
     } else {
         "".to_string()
     };
-    let path = if let Some(p) = default_path {
+    let path = if let Some(p) = &default_path {
         if let Some(ext) = p.extension() {
             p.with_file_name("${name}.meow").with_extension(ext)
         } else {
@@ -230,6 +241,69 @@ fi
         r#"";
 else
   echo "$out"
+fi
+"#
+    );
+
+    // edit
+    append!(
+        r#"
+# end normal block
+fi
+
+# template editing section
+
+if [ "$1" = "get-template" ]; then
+echo ""#,
+        &t.original
+            .replace('"', "\\\"")
+            .replace('$', "\\$")
+            .replace('`', "\\`")
+            .replace('\\', "\\\\"),
+        r#""
+fi
+
+if [ "$1" = "get-vars" ]; then
+echo ""#
+    );
+
+    if let Some(p) = &default_path {
+        append!(
+            r#"
+default_path=\""#,
+            &p.to_string_lossy(),
+            r#"\"
+"#
+        );
+    }
+
+    append!(
+        r#"
+[defaults]
+"#,
+    );
+
+    for v in &t.variables {
+        if let Some(default) = &v.default {
+            append!(v.variable, "=\\\"", default, "\\\"\n");
+        }
+    }
+
+    append!(
+        r#"
+[descriptions]
+"#,
+    );
+
+    for v in &t.variables {
+        if let Some(desc) = &v.description {
+            append!(v.variable, "=\\\"", desc, "\\\"\n");
+        }
+    }
+
+    append!(
+        r#"
+"
 fi
 "#
     );
