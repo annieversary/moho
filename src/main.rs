@@ -15,13 +15,15 @@ mod tests;
 
 mod create_template;
 mod edit_template;
+mod list_templates;
 
 use create_template::*;
 use edit_template::*;
 use generate::*;
+use list_templates::*;
 use parse::*;
 
-/// Simple program to greet a person
+/// code generation templating toolkit
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -31,6 +33,7 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Action {
+    /// Create a new template
     Create {
         /// name for the template
         ///
@@ -38,7 +41,7 @@ enum Action {
         /// the file directly, or by `bash .moho/NAME.mh`
         #[clap(value_parser)]
         name: String,
-        /// output path for the file
+        /// default path the template will output to
         ///
         /// should end in `name.ext`
         ///
@@ -46,9 +49,15 @@ enum Action {
         /// `--name hi`, the file will be created at `/path/to/hi.rs`
         ///
         /// if none is provided, the file will be created at `name` in the current directory
-        #[clap(value_parser)]
+        #[clap(name = "path", short, long, value_parser)]
         default_path: Option<PathBuf>,
+        /// if set, the editor will be prefilled with this file's contents
+        ///
+        /// useful for creating templates out of existing files
+        #[clap(short, long, value_parser)]
+        source: Option<PathBuf>,
     },
+    /// Edit an existing template
     Edit {
         /// name for the template to edit
         ///
@@ -56,6 +65,8 @@ enum Action {
         #[clap(value_parser)]
         name: String,
     },
+    /// List all existing templates in current directory
+    List,
 }
 
 fn main() -> Result<()> {
@@ -64,8 +75,13 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     match args.action {
-        Action::Create { name, default_path } => create_template(name, default_path),
+        Action::Create {
+            name,
+            default_path,
+            source,
+        } => create_template(name, default_path, source),
         Action::Edit { name } => edit_template(name),
+        Action::List => list_templates(),
     }
 }
 

@@ -2,6 +2,12 @@ use super::*;
 use pretty_assertions::assert_eq;
 
 #[test]
+fn verify_cli() {
+    use clap::CommandFactory;
+    crate::Args::command().debug_assert()
+}
+
+#[test]
 fn parse() -> Result<()> {
     let out = parse_template("hello {{ hi }} {{ hey | upper }} hii")?;
 

@@ -2,8 +2,17 @@ use crate::helpers::escape;
 
 use super::*;
 
-pub fn create_template(name: String, default_path: Option<PathBuf>) -> Result<()> {
-    let template = edit::edit("basic template demo {{ meow }}")?;
+pub fn create_template(
+    name: String,
+    default_path: Option<PathBuf>,
+    source: Option<PathBuf>,
+) -> Result<()> {
+    let source = source
+        .map(std::fs::read_to_string)
+        .transpose()?
+        .unwrap_or_default();
+
+    let template = edit::edit(source)?;
 
     let mut parsed = parse_template(&template)?;
 
