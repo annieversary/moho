@@ -7,3 +7,11 @@ pub fn make_executable(path: &str) -> Result<()> {
     fs::set_permissions(path, perms)?;
     Ok(())
 }
+
+pub fn escape(s: impl AsRef<str>) -> String {
+    s.as_ref()
+        .replace('"', "\\\"")
+        .replace('$', "\\$")
+        .replace('`', "\\`")
+        .replace('\\', "\\\\")
+}

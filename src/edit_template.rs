@@ -1,3 +1,5 @@
+use crate::helpers::escape;
+
 use super::*;
 use serde_derive::Deserialize;
 use std::{collections::HashMap, process::Command};
@@ -71,13 +73,7 @@ fn ask_defaults_and_descriptions(t: &mut Template, vars: &mut Vars) -> Result<()
         }
         .unwrap_or_default();
 
-        let default = readline
-            .trim()
-            // escape
-            .replace('"', "\\\"")
-            .replace('$', "\\$")
-            .replace('`', "\\`")
-            .replace('\\', "\\\\");
+        let default = escape(readline.trim());
         if !default.is_empty() {
             v.default = Some(default);
         }
@@ -93,12 +89,7 @@ fn ask_defaults_and_descriptions(t: &mut Template, vars: &mut Vars) -> Result<()
             rl.readline(&prompt)
         }
         .unwrap_or_default();
-        let desc = readline
-            .trim()
-            .replace('"', "\\\"")
-            .replace('$', "\\$")
-            .replace('`', "\\`")
-            .replace('\\', "\\\\");
+        let desc = escape(readline.trim());
         if !desc.is_empty() {
             v.description = Some(desc);
         }

@@ -1,3 +1,5 @@
+use crate::helpers::escape;
+
 use super::*;
 
 pub fn create_template(name: String, default_path: Option<PathBuf>) -> Result<()> {
@@ -33,13 +35,8 @@ fn ask_defaults_and_descriptions(t: &mut Template) -> Result<()> {
         );
         io::stdout().flush()?;
         io::stdin().read_line(&mut s)?;
-        let default = s
-            .trim()
-            // escape
-            .replace('"', "\\\"")
-            .replace('$', "\\$")
-            .replace('`', "\\`")
-            .replace('\\', "\\\\");
+        let default = escape(s.trim());
+        // escape
         if !default.is_empty() {
             v.default = Some(default);
         }
@@ -51,12 +48,7 @@ fn ask_defaults_and_descriptions(t: &mut Template) -> Result<()> {
         );
         io::stdout().flush()?;
         io::stdin().read_line(&mut s)?;
-        let desc = s
-            .trim()
-            .replace('"', "\\\"")
-            .replace('$', "\\$")
-            .replace('`', "\\`")
-            .replace('\\', "\\\\");
+        let desc = escape(s.trim());
         if !desc.is_empty() {
             v.description = Some(desc);
         }

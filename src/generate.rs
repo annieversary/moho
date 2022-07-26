@@ -1,5 +1,5 @@
 use super::*;
-use crate::filters::*;
+use crate::{filters::*, helpers::escape};
 
 // TODO split into functions
 
@@ -193,7 +193,7 @@ fi
             format!(
                 r#"  mkdir -p "{}"
 "#,
-                p.to_string_lossy()
+                escape(p.to_string_lossy())
             )
         } else {
             "".to_string()
@@ -201,14 +201,17 @@ fi
     } else {
         "".to_string()
     };
+
     let path = if let Some(p) = &default_path {
-        if let Some(ext) = p.extension() {
-            p.with_file_name("${name}.meow").with_extension(ext)
+        // we first write the name variable as `#{name}`, then escape all characters ($ included),
+        // then we change the `#` to a `$`
+        // this is definitely not the best way to do this but im not sure what to do
+        let s = if let Some(ext) = p.extension() {
+            p.with_file_name("#{name}.meow").with_extension(ext)
         } else {
-            p.with_file_name("${name}")
-        }
-        .to_string_lossy()
-        .to_string()
+            p.with_file_name("#{name}")
+        };
+        escape(s.to_string_lossy()).replace("#{name}", "${name}")
     } else {
         "./${name}".into()
     };
@@ -255,11 +258,7 @@ fi
 
 if [ "$1" = "get-template" ]; then
 echo ""#,
-        &t.original
-            .replace('"', "\\\"")
-            .replace('$', "\\$")
-            .replace('`', "\\`")
-            .replace('\\', "\\\\"),
+        &escape(&t.original),
         r#""
 fi
 
@@ -271,7 +270,7 @@ echo ""#
         append!(
             r#"
 default_path=\""#,
-            &p.to_string_lossy(),
+            &escape(p.to_string_lossy()),
             r#"\"
 "#
         );
