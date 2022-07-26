@@ -14,6 +14,7 @@ mod parse;
 mod tests;
 
 mod create_template;
+mod delete_template;
 mod edit_template;
 mod init;
 mod list_templates;
@@ -63,6 +64,14 @@ enum Action {
         #[clap(value_parser)]
         name: String,
     },
+    /// Delete an existing template
+    Delete {
+        /// name for the template to delete
+        ///
+        /// file at `.moho/NAME.mh` must exist
+        #[clap(value_parser)]
+        name: String,
+    },
     /// List all existing templates in current directory
     List,
     /// Creates an empty .moho directory
@@ -83,6 +92,7 @@ fn main() -> Result<()> {
             source,
         } => create_template::create_template(name, default_path, source),
         Action::Edit { name } => edit_template::edit_template(name),
+        Action::Delete { name } => delete_template::delete_template(name),
         Action::List => list_templates::list_templates(),
         Action::Init => init::init(),
     }
