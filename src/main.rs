@@ -15,12 +15,10 @@ mod tests;
 
 mod create_template;
 mod edit_template;
+mod init;
 mod list_templates;
 
-use create_template::*;
-use edit_template::*;
 use generate::*;
-use list_templates::*;
 use parse::*;
 
 /// code generation templating toolkit
@@ -67,6 +65,10 @@ enum Action {
     },
     /// List all existing templates in current directory
     List,
+    /// Creates an empty .moho directory
+    ///
+    /// this is not strictly necessary, the `create` command will create the directory if it does not exist
+    Init,
 }
 
 fn main() -> Result<()> {
@@ -79,9 +81,10 @@ fn main() -> Result<()> {
             name,
             default_path,
             source,
-        } => create_template(name, default_path, source),
-        Action::Edit { name } => edit_template(name),
-        Action::List => list_templates(),
+        } => create_template::create_template(name, default_path, source),
+        Action::Edit { name } => edit_template::edit_template(name),
+        Action::List => list_templates::list_templates(),
+        Action::Init => init::init(),
     }
 }
 
